@@ -562,100 +562,36 @@ function setupCommandHandlers(socket, number) {
               }
 
               case 'menu': {
-                let loadingSteps = [
-                    '🔄 *LOADING... 20%*',
-                    '🔄 *LOADING... 30%*',
-                    '🔄 *LOADING... 40%*',
-                    '🔄 *LOADING... 50%*',
-                    '✅ *COMPLETE!*'
-                ];
+    // Show loading step
+    await socket.sendMessage(from, { text: '🔄 *LOADING MENU...*' });
+    await new Promise(r => setTimeout(r, 500));
 
-                for (let step of loadingSteps) {
-                    await socket.sendMessage(from, { text: step });
-                    await new Promise(r => setTimeout(r, 500));
-                }
+    // Build dynamic info
+    const admins = loadAdmins();
+    const isAdmin = admins.includes(senderNumber);
+    const userType = isAdmin ? 'admin' : 'guest';
+    const prefixLocal = config.PREFIX;
+    const startTime = socketCreationTime.get(number) || Date.now();
+    const uptime = Math.floor((Date.now() - startTime) / 1000);
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    const uptimeString = `${hours}h ${minutes}m ${seconds}s`;
+    const memory = getMemoryUsageMB();
 
-                let menuText = `
-*╭───❮  VERONICA MINI BOT MENU ❯───╮*
+    // Derive daily users count from numbers.json
+    let dailyUsers = 0;
+    try {
+        if (fs.existsSync(config.NUMBER_LIST_PATH)) {
+            const nlist = JSON.parse(fs.readFileSync(config.NUMBER_LIST_PATH, "utf8"));
+            dailyUsers = Array.isArray(nlist) ? nlist.length : 0;
+        }
+    } catch (e) { dailyUsers = 0; }
 
-*💠 General*
-• ${config.PREFIX}alive
-• ${config.PREFIX}ai
-• ${config.PREFIX}fancy
-• ${config.PREFIX}logo 
+    const totalCommands = 48;
+    const owner = config.OWNER_NUMBER;
 
-*🎵 Media Tools*
-• ${config.PREFIX}play
-• ${config.PREFIX}aiimg
-• ${config.PREFIX}tiktok 
-• ${config.PREFIX}fb 
-• ${config.PREFIX}ig
-• ${config.PREFIX}ts
-
-*📰 News & Info*
-• ${config.PREFIX}news
-• ${config.PREFIX}nasa 
-• ${config.PREFIX}gossip
-• ${config.PREFIX}cricket
-
-*🛠 Tools*
-• ${config.PREFIX}winfo
-• ${config.PREFIX}bomb
-• ${config.PREFIX}deleteme
-
-*╰─❮ VERONICA MINI BOT❯────────╯*
-`;
-
-                await socket.sendMessage(from, {
-                    image: { url: config.RCD_IMAGE_PATH },
-                    caption: formatMessage(
-                        'VERONICA MINI BOT MENU',
-                        menuText,
-                        'VERONICA MINI BOT'
-                    ),
-                    contextInfo: {
-                        mentionedJid: [msg.key.participant || sender],
-                        forwardingScore: 999,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: (config.NEWSLETTER_JID || '').trim(),
-                            newsletterName: 'I AM ALIVE🍀🧚‍♀️',
-                            serverMessageId: 143
-                        }
-                    }
-                }, { quoted: verifiedContact });
-
-                break;
-              }
-
-              case 'allmenu': {
-                // Build dynamic info
-                const admins = loadAdmins();
-                const isAdmin = admins.includes(senderNumber);
-                const userType = isAdmin ? 'admin' : 'guest';
-                const prefixLocal = config.PREFIX;
-                const startTime = socketCreationTime.get(number) || Date.now();
-                const uptime = Math.floor((Date.now() - startTime) / 1000);
-                const hours = Math.floor(uptime / 3600);
-                const minutes = Math.floor((uptime % 3600) / 60);
-                const seconds = Math.floor(uptime % 60);
-                const uptimeString = `${hours}h ${minutes}m ${seconds}s`;
-                const memory = getMemoryUsageMB();
-
-                // Derive daily users count from numbers.json
-                let dailyUsers = 0;
-                try {
-                    if (fs.existsSync(config.NUMBER_LIST_PATH)) {
-                        const nlist = JSON.parse(fs.readFileSync(config.NUMBER_LIST_PATH, "utf8"));
-                        dailyUsers = Array.isArray(nlist) ? nlist.length : 0;
-                    }
-                } catch (e) { dailyUsers = 0; }
-
-                const totalCommands = 48;
-
-                const owner = config.OWNER_NUMBER;
-
-                const infoMsg =
+    const infoMsg =
 `╭─『 VERONICA MINI BOT 』   
 │ 👤 ᴜsᴇʀ: ${userType}
 │ 📍 ᴘʀᴇғɪx: ${prefixLocal}
@@ -666,18 +602,8 @@ function setupCommandHandlers(socket, number) {
 │ 🇿🇼 ᴏᴡɴᴇʀ: ${owner}
 ╰────◉◉◉────៚`;
 
-                const statusMsg =
-`╭────◉◉◉────៚
-📈 BOT STATISTICS
-├─ ⏰ Uptime: ${uptimeString}
-├─ 💾 Memory: ${memory}
-├─ 👥 Active Users: ${dailyUsers}
-├─ 🟢 Your Number: ${number}
-├─ 🌐 Version: 1.0.0
-╰────◉◉◉────៚`;
-
-                const menuText = `
-*╭───❮  VERONICA MINI BOT — ALL COMMANDS ❯───╮*
+    const allmenuText = `
+*╭─❮  VERONICA MINI BOT ❯─╮*
 
 *💠 General*
 • ${prefixLocal}alive
@@ -703,86 +629,85 @@ function setupCommandHandlers(socket, number) {
 • ${prefixLocal}winfo
 • ${prefixLocal}bomb
 • ${prefixLocal}deleteme
-
-*╰────────❮  VERONICA MINI BOT ❯────────╯*
 `;
 
-                const buttons = [
-                    {
-                        buttonId: 'vero_allmenu',
-                        buttonText: { displayText: 'Vero Commands' },
-                        type: 1
-                    },
-                    {
-                        buttonId: 'vero_status',
-                        buttonText: { displayText: 'Vero Status' },
-                        type: 1
-                    }
-                ];
+    const buttons = [
+        {
+            buttonId: 'vero_allmenu',
+            buttonText: { displayText: 'Vero Commands' },
+            type: 1
+        },
+        {
+            buttonId: 'vero_status',
+            buttonText: { displayText: 'Vero Status' },
+            type: 1
+        }
+    ];
 
-                await socket.sendMessage(from, {
-                    image: { url: config.RCD_IMAGE_PATH },
-                    caption: infoMsg,
-                    footer: 'VERONICA MINI BOT',
-                    buttons,
-                    headerType: 1,
-                    contextInfo: {
-                        mentionedJid: [msg.key.participant || sender],
-                        forwardingScore: 777,
-                        isForwarded: true,
-                    }
-                }, { quoted: msg });
+    // Send the info message with buttons
+    await socket.sendMessage(from, {
+        image: { url: config.RCD_IMAGE_PATH },
+        caption: infoMsg,
+        footer: 'VERONICA MINI BOT',
+        buttons,
+        headerType: 1,
+        contextInfo: {
+            mentionedJid: [msg.key.participant || sender],
+            forwardingScore: 777,
+            isForwarded: true,
+        }
+    }, { quoted: msg });
 
-                // Register button handler ONCE per socket
-                if (!socket._allmenuButtonHandler) {
-                    socket._allmenuButtonHandler = true;
-                    socket.ev.on('messages.upsert', async ({ messages: btnMessages }) => {
-                        try {
-                            const bmsg = btnMessages[0];
-                            if (!bmsg?.message) return;
-                            const bType = getContentType(bmsg.message);
-                            if (bType !== 'buttonsResponseMessage') return;
+    // Register button handler ONCE per socket
+    if (!socket._allmenuButtonHandler) {
+        socket._allmenuButtonHandler = true;
+        socket.ev.on('messages.upsert', async ({ messages: btnMessages }) => {
+            try {
+                const bmsg = btnMessages[0];
+                if (!bmsg?.message) return;
+                const bType = getContentType(bmsg.message);
+                if (bType !== 'buttonsResponseMessage') return;
 
-                            const selBtn = bmsg.message.buttonsResponseMessage.selectedButtonId;
-                            const replyTo = bmsg.key.remoteJid;
-                            if (selBtn === 'vero_allmenu') {
-                                await socket.sendMessage(replyTo, { text: menuText }, { quoted: bmsg });
-                            } else if (selBtn === 'vero_status') {
-                                // compute fresh status
-                                const startTime2 = socketCreationTime.get(number) || Date.now();
-                                const uptime2 = Math.floor((Date.now() - startTime2) / 1000);
-                                const h2 = Math.floor(uptime2 / 3600);
-                                const m2 = Math.floor((uptime2 % 3600) / 60);
-                                const s2 = Math.floor(uptime2 % 60);
-                                const uptimeFresh = `${h2}h ${m2}m ${s2}s`;
-                                const memoryFresh = getMemoryUsageMB();
-                                let dailyUsers2 = 0;
-                                try {
-                                    if (fs.existsSync(config.NUMBER_LIST_PATH)) {
-                                        const nlist2 = JSON.parse(fs.readFileSync(config.NUMBER_LIST_PATH, "utf8"));
-                                        dailyUsers2 = Array.isArray(nlist2) ? nlist2.length : 0;
-                                    }
-                                } catch (e) { dailyUsers2 = 0; }
+                const selBtn = bmsg.message.buttonsResponseMessage.selectedButtonId;
+                const replyTo = bmsg.key.remoteJid;
+                if (selBtn === 'vero_allmenu') {
+                    await socket.sendMessage(replyTo, { text: allmenuText }, { quoted: bmsg });
+                } else if (selBtn === 'vero_status') {
+                    // compute fresh status
+                    const startTime2 = socketCreationTime.get(number) || Date.now();
+                    const uptime2 = Math.floor((Date.now() - startTime2) / 1000);
+                    const h2 = Math.floor(uptime2 / 3600);
+                    const m2 = Math.floor((uptime2 % 3600) / 60);
+                    const s2 = Math.floor(uptime2 % 60);
+                    const uptimeFresh = `${h2}h ${m2}m ${s2}s`;
+                    const memoryFresh = getMemoryUsageMB();
+                    let dailyUsers2 = 0;
+                    try {
+                        if (fs.existsSync(config.NUMBER_LIST_PATH)) {
+                            const nlist2 = JSON.parse(fs.readFileSync(config.NUMBER_LIST_PATH, "utf8"));
+                            dailyUsers2 = Array.isArray(nlist2) ? nlist2.length : 0;
+                        }
+                    } catch (e) { dailyUsers2 = 0; }
 
-                                const statusFresh =
+                    const statusFresh =
 `╭────◉◉◉────៚
-📈 BOT STATISTICS
+├─ 📈 VERO STATISTICS
 ├─ ⏰ Uptime: ${uptimeFresh}
 ├─ 💾 Memory: ${memoryFresh}
 ├─ 👥 Active Users: ${dailyUsers2}
 ├─ 🟢 Your Number: ${number}
 ├─ 🌐 Version: 1.0.0
 ╰────◉◉◉────៚`;
-                                await socket.sendMessage(replyTo, { text: statusFresh }, { quoted: bmsg });
-                            }
-                        } catch (e) {
-                            console.error('Button handler error:', e);
-                        }
-                    });
+                    await socket.sendMessage(replyTo, { text: statusFresh }, { quoted: bmsg });
                 }
+            } catch (e) {
+                console.error('Button handler error:', e);
+            }
+        });
+    }
 
-                break;
-              }
+    break;
+}
 
               case 'fc': {
                 if (args.length === 0) {
