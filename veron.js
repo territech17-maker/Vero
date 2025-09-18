@@ -795,9 +795,12 @@ async function handleCommand(params = {}) {
           let vid = search.videos.length > 0 ? search.videos[0] : null;
           if (!vid) return socket.sendMessage(m.chat, { text: 'No results found!' }, { quoted: m });
 
+          // Call Nekolabs API
           let api = `https://api.nekolabs.my.id/downloader/youtube/v1?url=${encodeURIComponent(vid.url)}&format=mp3`;
-          let res = await fetch(api);
-          let json = await res.json();
+          // API returns JSON with data.result.download (a remote URL). Remote URLs sometimes fail when passed directly to Baileys.
+          // To ensure reliable delivery, download the mp3 to a buffer and send the buffer.
+          let res = await axios.get(api, { timeout: 20000 });
+          let json = res.data;
 
           if (!json.status || !json.result || !json.result.download) {
             return socket.sendMessage(m.chat, { text: 'Failed to fetch download link!' }, { quoted: m });
@@ -818,12 +821,26 @@ async function handleCommand(params = {}) {
           // Send cover image with info
           await socket.sendMessage(m.chat, { image: { url: data.cover }, caption: infoMsg }, { quoted: m });
 
-          // Send audio file
-          await socket.sendMessage(m.chat, {
-            audio: { url: data.download },
-            mimetype: 'audio/mp3',
-            fileName: `${data.title}.mp3`
-          }, { quoted: m });
+          // Attempt to download the mp3 and send as a buffer for reliability
+          try {
+            const audioResp = await axios.get(data.download, { responseType: 'arraybuffer', timeout: 60000 });
+            const audioBuffer = Buffer.from(audioResp.data);
+
+            // Send audio buffer
+            await socket.sendMessage(m.chat, {
+              audio: audioBuffer,
+              mimetype: 'audio/mpeg',
+              fileName: `${(data.title || 'track').replace(/[\\\/:*?"<>|]/g, '').slice(0, 64)}.mp3`
+            }, { quoted: m });
+          } catch (downloadErr) {
+            console.warn('Failed to download mp3 to buffer, falling back to url send:', downloadErr.message || downloadErr);
+            // Fallback: try sending the URL directly (may fail for large files)
+            await socket.sendMessage(m.chat, {
+              audio: { url: data.download },
+              mimetype: 'audio/mpeg',
+              fileName: `${(data.title || 'track').replace(/[\\\/:*?"<>|]/g, '').slice(0, 64)}.mp3`
+            }, { quoted: m });
+          }
 
         } catch (e) {
           console.log('song error', e);
